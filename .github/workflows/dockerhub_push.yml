@@ -1,40 +1,72 @@
 name: Build and publish to Docker Hub
 on:
-  # push:
-  #   branches:
-  #     - master
+  release:
+    types: [created]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
 jobs:
-  # ====== Todos Backend (build and deploy) ======
-  build-and-publish-image:
+  docker_build:
+    strategy:
+      matrix:
+        target: [client, client-standalone, server]
     runs-on: ubuntu-latest
     steps:
-      -
-        name: Checkout
-        uses: actions/checkout@v2
-      -
-        name: Set up Docker Buildx
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
-      -
-        name: Login to DockerHub
+
+      - name: Build
+        id: docker_build
+        uses: docker/build-push-action@v2
+        with:
+          file: docker/Dockerfile
+          push: false
+          target: ${{ matrix.target }}
+          cache-from: type=registry,ref=14pujan/opal-${{ matrix.target }}:latest
+          cache-to: type=inline
+          tags: |
+            14pujan/opal-${{ matrix.target }}:latest
+            14pujan/opal-${{ matrix.target }}:${{ github.event.release.tag_name }}
+
+  docker_check:
+    needs: docker_build
+      - name: Bring up stack
+        run: docker compose -f docker/docker-compose-example.yml up -d
+
+      - name: Check if OPA is responding
+        run: curl --header "Content-Type: application/json" --retry 10 --retry-connrefused -s "http://localhost:8181/v1/data/users"
+
+  docker_push:
+    needs: docker_check
+    strategy:
+      matrix:
+        target: [client, client-standalone, server]
+    runs-on: ubuntu-latest
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Login to DockerHub
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      -
-        name: Build image and push
-        id: docker_build
+
+      - name: Push
+        id: docker_push
         uses: docker/build-push-action@v2
         with:
+          file: docker/Dockerfile
           push: true
-          tags: authorizon/sidecar:latest
-          context: .
-          file: ./Dockerfile
-          build-args: |
-            READ_ONLY_GITHUB_TOKEN=${{ secrets.READ_ONLY_GITHUB_TOKEN }}
-      -
-        name: Image digest
-        run: echo ${{ steps.docker_build.outputs.digest }}
+          target: ${{ matrix.target }}
+          cache-from: type=registry,ref=14pujan/opal-${{ matrix.target }}:latest
+          cache-to: type=inline
+          tags: |
+            14pujan/opal-${{ matrix.target }}:latest
+            14pujan/opal-${{ matrix.target }}:${{ github.event.release.tag_name }}
