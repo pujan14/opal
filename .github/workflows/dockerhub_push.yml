@@ -8,9 +8,6 @@ on:
 
 jobs:
   docker_build:
-    strategy:
-      matrix:
-        target: [client, client-standalone, server]
     runs-on: ubuntu-latest
     steps:
       - name: Set up QEMU
@@ -20,40 +17,49 @@ jobs:
         uses: docker/setup-buildx-action@v1
 
       - name: Build
-        id: docker_build
+        id: build_client
         uses: docker/build-push-action@v2
         with:
           file: docker/Dockerfile
           push: false
-          target: ${{ matrix.target }}
-          cache-from: type=registry,ref=14pujan/opal-${{ matrix.target }}:latest
+          target: client
+          cache-from: type=registry,ref=14pujan/opal-client:latest
           cache-to: type=inline
           tags: |
-            14pujan/opal-${{ matrix.target }}:latest
-            14pujan/opal-${{ matrix.target }}:${{ github.event.release.tag_name }}
+            14pujan/opal-client:latest
+            14pujan/opal-client:${{ github.event.release.tag_name }}
 
-  docker_check:
-    needs: docker_build
-    runs-on: ubuntu-latest
-    steps:
+      - name: Build
+        id: build_client_standalone
+        uses: docker/build-push-action@v2
+        with:
+          file: docker/Dockerfile
+          push: false
+          target: client-standalone
+          cache-from: type=registry,ref=14pujan/opal-client-standalone:latest
+          cache-to: type=inline
+          tags: |
+            14pujan/opal-client-standalone:latest
+            14pujan/opal-client-standalone:${{ github.event.release.tag_name }}
+
+      - name: Build
+        id: build_server
+        uses: docker/build-push-action@v2
+        with:
+          file: docker/Dockerfile
+          push: false
+          target: server
+          cache-from: type=registry,ref=14pujan/opal-server:latest
+          cache-to: type=inline
+          tags: |
+            14pujan/opal-server:latest
+            14pujan/opal-server:${{ github.event.release.tag_name }}
+
       - name: Bring up stack
         run: docker-compose -f docker/docker-compose-example.yml up -d
 
       - name: Check if OPA is responding
         run: curl --retry 10 --retry-connrefused -s "http://localhost:8181/v1/data/users"
-
-  docker_push:
-    needs: docker_check
-    strategy:
-      matrix:
-        target: [client, client-standalone, server]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
 
       - name: Login to DockerHub
         uses: docker/login-action@v1
@@ -62,14 +68,40 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Push
-        id: docker_push
+        id: push_client
         uses: docker/build-push-action@v2
         with:
           file: docker/Dockerfile
           push: true
-          target: ${{ matrix.target }}
-          cache-from: type=registry,ref=14pujan/opal-${{ matrix.target }}:latest
+          target: client
+          cache-from: type=registry,ref=14pujan/opal-client:latest
           cache-to: type=inline
           tags: |
-            14pujan/opal-${{ matrix.target }}:latest
-            14pujan/opal-${{ matrix.target }}:${{ github.event.release.tag_name }}
+            14pujan/opal-client:latest
+            14pujan/opal-client:${{ github.event.release.tag_name }}
+
+      - name: Push
+        id: push_client_standalone
+        uses: docker/build-push-action@v2
+        with:
+          file: docker/Dockerfile
+          push: true
+          target: client-standalone
+          cache-from: type=registry,ref=14pujan/opal-client-standalone:latest
+          cache-to: type=inline
+          tags: |
+            14pujan/opal-client-standalone:latest
+            14pujan/opal-client-standalone:${{ github.event.release.tag_name }}
+
+      - name: Push
+        id: push_server
+        uses: docker/build-push-action@v2
+        with:
+          file: docker/Dockerfile
+          push: true
+          target: server
+          cache-from: type=registry,ref=14pujan/opal-server:latest
+          cache-to: type=inline
+          tags: |
+            14pujan/opal-server:latest
+            14pujan/opal-server:${{ github.event.release.tag_name }}
