@@ -8,9 +8,9 @@ on:
 
 jobs:
   docker:
-    # strategy:
-    #   matrix:
-    #     target: [client, client-standalone, server]
+    strategy:
+      matrix:
+        target: [client, client-standalone, server]
     runs-on: ubuntu-latest
     steps:
       - name: Set up QEMU
@@ -31,35 +31,9 @@ jobs:
         with:
           file: docker/Dockerfile
           push: true
-          target: client
-          cache-from: type=registry,ref=14pujan/opal-client:latest
+          target: ${{ matrix.target }}
+          cache-from: type=registry,ref=14pujan/opal-${{ matrix.target }}:latest
           cache-to: type=inline
           tags: |
-            14pujan/opal-client:latest
-            14pujan/opal-client:${{ github.event.release.tag_name }}
-
-      - name: Build and push
-        id: docker_build2
-        uses: docker/build-push-action@v2
-        with:
-          file: docker/Dockerfile
-          push: true
-          target: client-standalone
-          cache-from: type=registry,ref=14pujan/opal-client-standalone:latest
-          cache-to: type=inline
-          tags: |
-            14pujan/opal-client-standalone:latest
-            14pujan/opal-client-standalone:${{ github.event.release.tag_name }}
-
-      - name: Build and push
-        id: docker_build3
-        uses: docker/build-push-action@v2
-        with:
-          file: docker/Dockerfile
-          push: true
-          target: server
-          cache-from: type=registry,ref=14pujan/opal-server:latest
-          cache-to: type=inline
-          tags: |
-            14pujan/opal-server:latest
-            14pujan/opal-server:${{ github.event.release.tag_name }}
+            14pujan/opal-${{ matrix.target }}:latest
+            14pujan/opal-${{ matrix.target }}:${{ github.event.release.tag_name }}
