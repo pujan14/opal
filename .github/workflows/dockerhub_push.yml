@@ -32,6 +32,8 @@ jobs:
           file: docker/Dockerfile
           push: true
           target: ${{ matrix.target }}
+          cache-from: type=registry,ref=14pujan/opal-${{ matrix.target }}:latest
+          cache-to: type=inline
           tags: |
             14pujan/opal-${{ matrix.target }}:latest
             14pujan/opal-${{ matrix.target }}:${{ github.event.release.tag_name }}
