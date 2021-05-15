@@ -36,4 +36,11 @@ jobs:
           cache-to: type=inline
           tags: |
             authorizon/opal-${{ matrix.target }}:latest
+            authorizon/opal-${{ matrix.target }}:${{ github.sha }}
             authorizon/opal-${{ matrix.target }}:${{ github.event.release.tag_name }}
+
+      - name: Configure and bring up docker compose stack
+        run: |
+          sed -i docker/docker-compose-example.yml 's/:latest/:${{ github.sha }}'
+          echo docker/docker-compose-example.yml
+          docker-compose -f docker/docker-compose-example.yml up -d
